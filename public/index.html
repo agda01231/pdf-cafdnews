@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF 논문 쉬운 해설 & 카드뉴스 변환기</title>
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --primary-hover: #4338CA;
+            --bg: #F8FAFC;
+            --card-bg: #FFFFFF;
+            --text-main: #0F172A;
+            --text-muted: #64748B;
+            --border: #E2E8F0;
+            --radius: 12px;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            line-height: 1.6;
+            padding: 24px 16px;
+        }
+
+        .container {
+            max-width: 860px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        header h1 {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 8px;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 0.975rem;
+        }
+
+        .section-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border);
+        }
+
+        /* API KEY INPUT */
+        .api-key-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .api-key-group label {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text-main);
+        }
+
+        .api-key-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .api-key-group input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+        }
+
+        /* UPLOAD AREA */
+        .upload-area {
+            border: 2px dashed #CBD5E1;
+            border-radius: var(--radius);
+            padding: 36px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: background-color 0.2s, border-color 0.2s;
+            background-color: #F1F5F9;
+        }
+
+        .upload-area:hover, .upload-area.drag-over {
+            background-color: #EEF2FF;
+            border-color: var(--primary);
+        }
+
+        .upload-icon {
+            font-size: 40px;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .upload-text {
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 4px;
+        }
+
+        .upload-subtext {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        #pdfFile {
+            display: none;
+        }
+
+        .file-info {
+            margin-top: 16px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            background: #E0E7FF;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: var(--primary);
+            font-weight: 500;
+        }
+
+        /* BUTTON */
+        .btn-submit {
+            width: 100%;
+            margin-top: 20px;
+            padding: 14px 20px;
+            background-color: var(--primary);
+            color: #FFFFFF;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);
+        }
+
+        .btn-submit:hover:not(:disabled) {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-submit:disabled {
+            background-color: #94A3B8;
+            cursor: not-allowed;
+        }
+
+        /* LOADING */
+        .loading-container {
+            display: none;
+            text-align: center;
+            padding: 32px 16px;
+        }
+
+        .spinner {
+            width: 44px;
+            height: 44px;
+            border: 4px solid #E2E8F0;
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: var(--text-main);
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        /* RESULT CARDS */
+        .results-container {
+            display: none;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .result-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            padding: 24px;
+            border: 1px solid var(--border);
+        }
+
+        .result-card h2 {
+            font-size: 1.25rem;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #F1F5F9;
+        }
+
+        .card-content {
+            font-size: 0.975rem;
+            color: #334155;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        /* ERROR TOAST */
+        .error-message {
+            display: none;
+            background-color: #FEF2F2;
+            border: 1px solid #FECACA;
+            color: #DC2626;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 640px) {
+            body {
+                padding: 16px 12px;
+            }
+            .section-card, .result-card {
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>📄 논문/보고서 AI 해설기</h1>
+        <p>복잡한 PDF 논문을 쉬운 설명과 카드뉴스 콘텐츠로 자동 변환합니다.</p>
+    </header>
+
+    <!-- API KEY SECTION -->
+    <div class="section-card">
+        <div class="api-key-group">
+            <label for="apiKey">Google Gemini API Key</label>
+            <input type="password" id="apiKey" placeholder="AI Studio에서 발급받은 API Key를 입력하세요">
+        </div>
+    </div>
+
+    <!-- FILE UPLOAD SECTION -->
+    <div class="section-card">
+        <div class="upload-area" id="dropZone">
+            <span class="upload-icon">📂</span>
+            <div class="upload-text">PDF 파일을 드래그하려 놓거나 클릭하여 선택하세요</div>
+            <div class="upload-subtext">최대 20MB 이하의 PDF 파일만 지원합니다.</div>
+            <input type="file" id="pdfFile" accept=".pdf">
+        </div>
+        <div class="file-info" id="fileInfo">
+            <span id="fileName">파일명.pdf</span>
+            <span style="font-size: 0.8rem; color: #475569;">선택됨</span>
+        </div>
+        <div class="error-message" id="errorMessage"></div>
+        <button class="btn-submit" id="submitBtn">PDF 분석 & 카드뉴스 생성하기</button>
+    </div>
+
+    <!-- LOADING STATE -->
+    <div class="loading-container" id="loadingState">
+        <div class="spinner"></div>
+        <div class="loading-text">PDF 파일을 읽고 Gemini가 분석 중입니다...</div>
+    </div>
+
+    <!-- RESULT DISPLAY -->
+    <div class="results-container" id="resultsContainer">
+        <!-- CARD 1 -->
+        <div class="result-card">
+            <h2>👧 초등학생도 이해하는 쉬운 말 해설</h2>
+            <div class="card-content" id="card1Content"></div>
+        </div>
+
+        <!-- CARD 2 -->
+        <div class="result-card">
+            <h2>📌 핵심 테이크어웨이 (3줄 요약)</h2>
+            <div class="card-content" id="card2Content"></div>
+        </div>
+
+        <!-- CARD 3 -->
+        <div class="result-card">
+            <h2>📱 SNS 카드뉴스용 텍스트</h2>
+            <div class="card-content" id="card3Content"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const dropZone = document.getElementById('dropZone');
+    const pdfFileInput = document.getElementById('pdfFile');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileNameDisplay = document.getElementById('fileName');
+    const apiKeyInput = document.getElementById('apiKey');
+    const submitBtn = document.getElementById('submitBtn');
+    const errorMessage = document.getElementById('errorMessage');
+    const loadingState = document.getElementById('loadingState');
+    const resultsContainer = document.getElementById('resultsContainer');
+
+    const card1Content = document.getElementById('card1Content');
+    const card2Content = document.getElementById('card2Content');
+    const card3Content = document.getElementById('card3Content');
+
+    let selectedFile = null;
+
+    // Drag & Drop & Click Handling
+    dropZone.addEventListener('click', () => pdfFileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('drag-over');
+    });
+
+    ['dragleave', 'dragend'].forEach(type => {
+        dropZone.addEventListener(type, () => dropZone.classList.remove('drag-over'));
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        if (e.dataTransfer.files.length > 0) {
+            handleFileSelect(e.dataTransfer.files[0]);
+        }
+    });
+
+    pdfFileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            handleFileSelect(e.target.files[0]);
+        }
+    });
+
+    function handleFileSelect(file) {
+        if (file.type !== 'application/pdf') {
+            showError('PDF 확장자 파일만 업로드할 수 있습니다.');
+            return;
+        }
+        hideError();
+        selectedFile = file;
+        fileNameDisplay.textContent = file.name;
+        fileInfo.style.display = 'flex';
+    }
+
+    function showError(msg) {
+        errorMessage.textContent = msg;
+        errorMessage.style.display = 'block';
+    }
+
+    function hideError() {
+        errorMessage.style.display = 'none';
+    }
+
+    // Convert File to Base64 String
+    function fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const base64String = reader.result.split(',')[1];
+                resolve(base64String);
+            };
+            reader.onerror = (err) => reject(err);
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // Submit Handler
+    submitBtn.addEventListener('click', async () => {
+        const apiKey = apiKeyInput.value.trim();
+
+        if (!apiKey) {
+            showError('Google Gemini API Key를 입력해 주세요.');
+            apiKeyInput.focus();
+            return;
+        }
+
+        if (!selectedFile) {
+            showError('분석할 PDF 파일을 업로드해 주세요.');
+            return;
+        }
+
+        hideError();
+        resultsContainer.style.display = 'none';
+        loadingState.style.display = 'block';
+        submitBtn.disabled = true;
+
+        try {
+            const base64Data = await fileToBase64(selectedFile);
+
+            const prompt = `
+당신은 어려운 논문과 학술 보고서를 누구나 이해하기 쉽게 재가공하는 친절한 수석 카피라이터이자 지식 에디터입니다.
+제공된 PDF 논문을 상세히 분석하여 반드시 아래의 3가지 서식(구분선 포함)에 맞추어 한국어로 응답해 주세요.
+
+[카드 1: 쉬운 말 해설]
+어려운 전문 용어를 배제하고, 초등학생도 한눈에 직관적으로 이해할 수 있도록 초등학생 눈높이에 맞는 비유나 일상적인 예시를 들어 3~5문장 정도로 친근하게 설명해 줘.
+
+[카드 2: 핵심 테이크어웨이]
+논문의 핵심 핵심 성과나 결론을 딱 3개의 글머리 기호(3줄)로 명확하게 요약해 줘. 각 줄은 간결하고 명확해야 해.
+
+[카드 3: 카드뉴스]
+SNS(인스타그램, 카드뉴스 등)에 올리기 적합한 4장짜리 카드뉴스 구성안 텍스트를 작성해 줘.
+- 슬라이드 1: [제목 & 도발적인 질문/호기심 유발 헤드라인]
+- 슬라이드 2: [문제 제기 또는 기존의 한계]
+- 슬라이드 3: [논문의 핵심 해결책 및 연구 내용]
+- 슬라이드 4: [결론 및 시사점]
+`;
+
+            const payload = {
+                contents: [{
+                    parts: [
+                        {
+                            inlineData: {
+                                mimeType: "application/pdf",
+                                data: base64Data
+                            }
+                        },
+                        {
+                            text: prompt
+                        }
+                    ]
+                }]
+            };
+
+            const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || `요청 실패 (코드: ${response.status})`);
+            }
+
+            const data = await response.json();
+            const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+            parseAndRenderResult(rawText);
+
+        } catch (err) {
+            showError(`오류가 발생했습니다: ${err.message}`);
+        } finally {
+            loadingState.style.display = 'none';
+            submitBtn.disabled = false;
+        }
+    });
+
+    // Parsing Response Text into 3 Section Cards
+    function parseAndRenderResult(text) {
+        let card1 = '';
+        let card2 = '';
+        let card3 = '';
+
+        const card1Match = text.match(/\[카드 1: 쉬운 말 해설\]([\s\S]*?)(?=\[카드 2:|$)/);
+        const card2Match = text.match(/\[카드 2: 핵심 테이크어웨이\]([\s\S]*?)(?=\[카드 3:|$)/);
+        const card3Match = text.match(/\[카드 3: 카드뉴스\]([\s\S]*?)$/);
+
+        if (card1Match) card1 = card1Match[1].trim();
+        if (card2Match) card2 = card2Match[1].trim();
+        if (card3Match) card3 = card3Match[1].trim();
+
+        // Fallback parsing if exact tags are omitted
+        if (!card1 && !card2 && !card3) {
+            const parts = text.split(/\n\s*\n/);
+            card1 = text;
+            card2 = "결과 파싱 중 분서 형식이 약간 이탈했습니다. 위 원문을 확인해 주세요.";
+            card3 = "";
+        }
+
+        card1Content.textContent = card1;
+        card2Content.textContent = card2;
+        card3Content.textContent = card3;
+
+        resultsContainer.style.display = 'flex';
+    }
+</script>
+
+</body>
+</html>
